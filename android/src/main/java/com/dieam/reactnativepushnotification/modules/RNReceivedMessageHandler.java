@@ -1,6 +1,5 @@
 package com.dieam.reactnativepushnotification.modules;
 
-import java.util.Map;
 import com.google.firebase.messaging.FirebaseMessagingService;
 import com.google.firebase.messaging.RemoteMessage;
 
@@ -75,7 +74,7 @@ public class RNReceivedMessageHandler {
 
             final int badge = data.optInt("badge", -1);
             if (badge >= 0) {
-                ApplicationBadgeHelper.INSTANCE.setApplicationIconBadgeNumber(this, badge);
+                ApplicationBadgeHelper.INSTANCE.setApplicationIconBadgeNumber(mFirebaseMessagingService, badge);
             }
         }
 
@@ -88,7 +87,7 @@ public class RNReceivedMessageHandler {
         handler.post(new Runnable() {
             public void run() {
                 // Construct and load our normal React JS code bundle
-                ReactInstanceManager mReactInstanceManager = ((ReactApplication) getApplication()).getReactNativeHost().getReactInstanceManager();
+                ReactInstanceManager mReactInstanceManager = ((ReactApplication) mFirebaseMessagingService.getApplication()).getReactNativeHost().getReactInstanceManager();
                 ReactContext context = mReactInstanceManager.getCurrentReactContext();
                 // If it's constructed, send a notification
                 if (context != null) {
@@ -145,11 +144,11 @@ public class RNReceivedMessageHandler {
     }
 
     private boolean isApplicationInForeground() {
-        ActivityManager activityManager = (ActivityManager) this.getSystemService(ACTIVITY_SERVICE);
+        ActivityManager activityManager = (ActivityManager) mFirebaseMessagingService.getSystemService(ACTIVITY_SERVICE);
         List<RunningAppProcessInfo> processInfos = activityManager.getRunningAppProcesses();
         if (processInfos != null) {
             for (RunningAppProcessInfo processInfo : processInfos) {
-                if (processInfo.processName.equals(getApplication().getPackageName())) {
+                if (processInfo.processName.equals(mFirebaseMessagingService.getApplication().getPackageName())) {
                     if (processInfo.importance == RunningAppProcessInfo.IMPORTANCE_FOREGROUND) {
                         for (String d : processInfo.pkgList) {
                             return true;
