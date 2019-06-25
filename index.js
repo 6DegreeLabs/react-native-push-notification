@@ -211,7 +211,8 @@ Notifications._onNotification = function(data, isFromBackground = null) {
 	if ( isFromBackground === null ) {
 		isFromBackground = (
 			data.foreground === false ||
-			AppState.currentState === 'background'
+			AppState.currentState === 'background' ||
+			AppState.currentState === 'inactive'
 		);
 	}
 
@@ -219,7 +220,7 @@ Notifications._onNotification = function(data, isFromBackground = null) {
 		if ( Platform.OS === 'ios' ) {
 			this.onNotification({
 				foreground: ! isFromBackground,
-				userInteraction: isFromBackground,
+				userInteraction: data.userInteraction || isFromBackground,
 				message: data.getMessage(),
 				data: data.getData(),
 				badge: data.getBadgeCount(),
@@ -310,6 +311,7 @@ Notifications.getApplicationIconBadgeNumber = function() {
 
 Notifications.popInitialNotification = function(handler) {
 	this.callNative('getInitialNotification').then(function(result){
+		result.userInteraction = true;
 		handler(result);
 	});
 };
