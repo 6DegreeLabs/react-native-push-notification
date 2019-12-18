@@ -14,7 +14,7 @@ var Platform = require('react-native').Platform;
 var Notifications = {
 	handler: RNNotifications,
 	onRegister: false,
-	onError: false,
+	onRegistrationError: false,
 	onNotification: false,
   onRemoteFetch: false,
 	isLoaded: false,
@@ -47,7 +47,7 @@ Notifications.callNative = function(name: String, params: Array) {
  * @param {Object}		options
  * @param {function}	options.onRegister - Fired when the user registers for remote notifications.
  * @param {function}	options.onNotification - Fired when a remote notification is received.
- * @param {function} 	options.onError - None
+ * @param {function} 	options.onRegistrationError - Fired when the APNS is having issues, or for iOS simulator.
  * @param {Object}		options.permissions - Permissions list
  * @param {Boolean}		options.requestPermissions - Check permissions when register
  */
@@ -56,8 +56,8 @@ Notifications.configure = function(options: Object) {
 		this.onRegister = options.onRegister;
 	}
 
-	if ( typeof options.onError !== 'undefined' ) {
-		this.onError = options.onError;
+	if ( typeof options.onRegistrationError !== 'undefined' ) {
+		this.onRegistrationError = options.onRegistrationError;
 	}
 
 	if ( typeof options.onNotification !== 'undefined' ) {
@@ -78,9 +78,11 @@ Notifications.configure = function(options: Object) {
 
 	if ( this.isLoaded === false ) {
 		this._onRegister = this._onRegister.bind(this);
+		this._onRegistrationError = this._onRegistrationError.bind(this);
 		this._onNotification = this._onNotification.bind(this);
 		this._onRemoteFetch = this._onRemoteFetch.bind(this);
 		this.callNative( 'addEventListener', [ 'register', this._onRegister ] );
+		this.callNative( 'addEventListener', [ 'registrationError', this._onRegistrationError ] );
 		this.callNative( 'addEventListener', [ 'notification', this._onNotification ] );
 		this.callNative( 'addEventListener', [ 'localNotification', this._onNotification ] );
 		Platform.OS === 'android' ? this.callNative( 'addEventListener', [ 'remoteFetch', this._onRemoteFetch ] ) : null
@@ -107,6 +109,7 @@ Notifications.configure = function(options: Object) {
 /* Unregister */
 Notifications.unregister = function() {
 	this.callNative( 'removeEventListener', [ 'register', this._onRegister ] )
+	this.callNative( 'removeEventListener', [ 'registrationError', this._onRegistrationError ] );
 	this.callNative( 'removeEventListener', [ 'notification', this._onNotification ] )
 	this.callNative( 'removeEventListener', [ 'localNotification', this._onNotification ] )
 	Platform.OS === 'android' ? this.callNative( 'removeEventListener', [ 'remoteFetch', this._onRemoteFetch ] ) : null
@@ -198,6 +201,12 @@ Notifications._onRegister = function(token: String) {
 			token: token,
 			os: Platform.OS
 		});
+	}
+};
+
+Notifications._onRegistrationError = function(error: Object) {
+	if ( this.onRegistrationError !== false ) {
+		this.onRegistrationError(error);
 	}
 };
 
