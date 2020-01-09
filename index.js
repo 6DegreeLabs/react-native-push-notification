@@ -16,7 +16,7 @@ var Notifications = {
 	onRegister: false,
 	onRegistrationError: false,
 	onNotification: false,
-  onRemoteFetch: false,
+  	onRemoteFetch: false,
 	isLoaded: false,
 	hasPoppedInitialNotification: false,
 
@@ -321,7 +321,13 @@ Notifications.getApplicationIconBadgeNumber = function() {
 Notifications.popInitialNotification = function(handler) {
 	this.callNative('getInitialNotification').then(function(result){
 		if(result) {
-			result.userInteraction = true;
+			let isFromBackground = (
+				result.foreground === false ||
+				AppState.currentState === 'background' ||
+				AppState.currentState === 'inactive'
+			);
+
+			result.userInteraction = isFromBackground;
 		}
 		handler(result);
 	});
