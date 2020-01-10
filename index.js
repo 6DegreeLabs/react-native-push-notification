@@ -321,13 +321,7 @@ Notifications.getApplicationIconBadgeNumber = function() {
 Notifications.popInitialNotification = function(handler) {
 	this.callNative('getInitialNotification').then(function(result){
 		if(result) {
-			let isFromBackground = (
-				result.foreground === false ||
-				AppState.currentState === 'background' ||
-				AppState.currentState === 'inactive'
-			);
-
-			result.userInteraction = isFromBackground;
+			result.userInteraction = true;
 		}
 		handler(result);
 	});
