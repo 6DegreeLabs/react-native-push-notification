@@ -29,7 +29,7 @@ var Notifications = {
 	}
 };
 
-Notifications.callNative = function(name: String, params: Array) {
+Notifications.callNative = function(name, params) {
 	if ( typeof this.handler[name] === 'function' ) {
 		if ( typeof params !== 'array' &&
 			 typeof params !== 'object' ) {
@@ -51,7 +51,7 @@ Notifications.callNative = function(name: String, params: Array) {
  * @param {Object}		options.permissions - Permissions list
  * @param {Boolean}		options.requestPermissions - Check permissions when register
  */
-Notifications.configure = function(options: Object) {
+Notifications.configure = function(options) {
 	if ( typeof options.onRegister !== 'undefined' ) {
 		this.onRegister = options.onRegister;
 	}
@@ -66,10 +66,6 @@ Notifications.configure = function(options: Object) {
 
 	if ( typeof options.permissions !== 'undefined' ) {
 		this.permissions = options.permissions;
-	}
-
-	if ( typeof options.senderID !== 'undefined' ) {
-		this.senderID = options.senderID;
 	}
 
 	if ( typeof options.onRemoteFetch !== 'undefined' ) {
@@ -124,7 +120,7 @@ Notifications.unregister = function() {
  * @param {String}		details.ticker -  ANDROID ONLY: The ticker displayed in the status bar.
  * @param {Object}		details.userInfo -  iOS ONLY: The userInfo used in the notification alert.
  */
-Notifications.localNotification = function(details: Object) {
+Notifications.localNotification = function(details) {
 	if ( Platform.OS === 'ios' ) {
 		// https://developer.apple.com/reference/uikit/uilocalnotification
 
@@ -134,7 +130,7 @@ Notifications.localNotification = function(details: Object) {
 			soundName = ''; // empty string results in no sound (and no vibration)
 		}
 
-		// for valid fields see: https://developer.apple.com/library/ios/documentation/NetworkingInternet/Conceptual/RemoteNotificationsPG/Chapters/IPhoneOSClientImp.html
+		// for valid fields see: https://developer.apple.com/library/archive/documentation/NetworkingInternet/Conceptual/RemoteNotificationsPG/PayloadKeyReference.html
 		// alertTitle only valid for apple watch: https://developer.apple.com/library/ios/documentation/iPhone/Reference/UILocalNotification_Class/#//apple_ref/occ/instp/UILocalNotification/alertTitle
 
 		this.handler.presentLocalNotification({
@@ -147,6 +143,14 @@ Notifications.localNotification = function(details: Object) {
 			userInfo: details.userInfo
 		});
 	} else {
+    if(details && typeof details.id === 'number') {
+      details.id = '' + details.id;
+    }
+
+    if(details && typeof details.number === 'number') {
+      details.number = '' + details.number;
+    }
+
 		this.handler.presentLocalNotification(details);
 	}
 };
@@ -156,7 +160,7 @@ Notifications.localNotification = function(details: Object) {
  * @param {Object}		details (same as localNotification)
  * @param {Date}		details.date - The date and time when the system should deliver the notification
  */
-Notifications.localNotificationSchedule = function(details: Object) {
+Notifications.localNotificationSchedule = function(details) {
 	if ( Platform.OS === 'ios' ) {
 		let soundName = details.soundName ? details.soundName : 'default'; // play sound (and vibrate) as default behaviour
 
@@ -171,7 +175,8 @@ Notifications.localNotificationSchedule = function(details: Object) {
 			category: details.category,
 			soundName: soundName,
 			userInfo: details.userInfo,
-			repeatInterval: details.repeatType
+			repeatInterval: details.repeatType,
+			category: details.category,
 		};
 
 		if(details.number) {
@@ -184,6 +189,14 @@ Notifications.localNotificationSchedule = function(details: Object) {
 		}
 		this.handler.scheduleLocalNotification(iosDetails);
 	} else {
+    if(details && typeof details.id === 'number') {
+      details.id = '' + details.id;
+    }
+
+    if(details && typeof details.number === 'number') {
+      details.number = '' + details.number;
+    }
+
 		details.fireDate = details.date.getTime();
 		delete details.date;
 		// ignore iOS only repeatType
@@ -195,7 +208,7 @@ Notifications.localNotificationSchedule = function(details: Object) {
 };
 
 /* Internal Functions */
-Notifications._onRegister = function(token: String) {
+Notifications._onRegister = function(token) {
 	if ( this.onRegister !== false ) {
 		this.onRegister({
 			token: token,
@@ -271,8 +284,8 @@ Notifications._requestPermissions = function() {
 							.then(this._onPermissionResult.bind(this))
 							.catch(this._onPermissionResult.bind(this));
 		}
-	} else if ( typeof this.senderID !== 'undefined' ) {
-		return this.callNative( 'requestPermissions', [ this.senderID ]);
+	} else if (Platform.OS === 'android') {
+		return this.callNative( 'requestPermissions', []);
 	}
 };
 
@@ -280,14 +293,18 @@ Notifications._requestPermissions = function() {
 Notifications.requestPermissions = function() {
 	if ( Platform.OS === 'ios' ) {
 		return this.callNative( 'requestPermissions', [ this.permissions ]);
-	} else if ( typeof this.senderID !== 'undefined' ) {
-		return this.callNative( 'requestPermissions', [ this.senderID ]);
+	} else if (Platform.OS === 'android') {
+		return this.callNative( 'requestPermissions', []);
 	}
 };
 
 /* Fallback functions */
 Notifications.subscribeToTopic = function() {
 	return this.callNative('subscribeToTopic', arguments);
+};
+
+Notifications.unsubscribeFromTopic = function () {
+	return this.callNative('unsubscribeFromTopic', arguments);
 };
 
 Notifications.presentLocalNotification = function() {
@@ -327,13 +344,14 @@ Notifications.popInitialNotification = function(handler) {
 	});
 };
 
-Notifications.abandonPermissions = function() {
-	return this.callNative('abandonPermissions', arguments);
-};
-
 Notifications.checkPermissions = function() {
 	return this.callNative('checkPermissions', arguments);
 };
+
+/* Abandon Permissions */
+Notifications.abandonPermissions = function() {
+	return this.callNative('abandonPermissions', arguments);
+}
 
 Notifications.registerNotificationActions = function() {
 	return this.callNative('registerNotificationActions', arguments)
@@ -342,6 +360,18 @@ Notifications.registerNotificationActions = function() {
 Notifications.clearAllNotifications = function() {
 	// Only available for Android
 	return this.callNative('clearAllNotifications', arguments)
+}
+
+Notifications.removeAllDeliveredNotifications = function() {
+	return this.callNative('removeAllDeliveredNotifications', arguments);
+}
+
+Notifications.getDeliveredNotifications = function() {
+	return this.callNative('getDeliveredNotifications', arguments);
+}
+
+Notifications.removeDeliveredNotifications = function() {
+	return this.callNative('removeDeliveredNotifications', arguments);
 }
 
 module.exports = Notifications;
