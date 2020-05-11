@@ -15,10 +15,13 @@ import android.util.Log;
 import com.dieam.reactnativepushnotification.helpers.ApplicationBadgeHelper;
 import com.dieam.reactnativepushnotification.modules.RNPushNotificationHelper;
 import com.dieam.reactnativepushnotification.modules.RNPushNotificationJsDelivery;
+import com.dieam.reactnativepushnotification.modules.RNPushNotificationConfig;
+
 import com.facebook.react.ReactApplication;
 import com.facebook.react.ReactInstanceManager;
 import com.facebook.react.bridge.ReactApplicationContext;
 import com.facebook.react.bridge.ReactContext;
+import com.facebook.react.bridge.WritableMap;
 
 import org.json.JSONObject;
 
@@ -36,6 +39,43 @@ public class RNReceivedMessageHandler {
         this.mFirebaseMessagingService = service;
     }
 
+    public void onNewToken(String token) {
+        final String deviceToken = token;
+        Log.d(LOG_TAG, "Refreshed token: " + deviceToken);
+
+        Handler handler = new Handler(Looper.getMainLooper());
+        handler.post(new Runnable() {
+            public void run() {
+                // Construct and load our normal React JS code bundle
+                ReactInstanceManager mReactInstanceManager = ((ReactApplication) mFirebaseMessagingService.getApplication()).getReactNativeHost().getReactInstanceManager();
+                ReactContext context = mReactInstanceManager.getCurrentReactContext();
+                // If it's constructed, send a notificationre
+                if (context != null) {
+                    handleNewToken((ReactApplicationContext) context, deviceToken);
+                } else {
+                    // Otherwise wait for construction, then send the notification
+                    mReactInstanceManager.addReactInstanceEventListener(new ReactInstanceManager.ReactInstanceEventListener() {
+                        public void onReactContextInitialized(ReactContext context) {
+                            handleNewToken((ReactApplicationContext) context, deviceToken);
+                        }
+                    });
+                    if (!mReactInstanceManager.hasStartedCreatingInitialContext()) {
+                        // Construct it in the background
+                        mReactInstanceManager.createReactContextInBackground();
+                    }
+                }
+            }
+        });
+    }
+
+    private void handleNewToken(ReactApplicationContext context, String token) {
+        RNPushNotificationJsDelivery jsDelivery = new RNPushNotificationJsDelivery(context);
+
+        WritableMap params = Arguments.createMap();
+        params.putString("deviceToken", token);
+        jsDelivery.sendEvent("remoteNotificationsRegistered", params);
+    }
+
     public void handleReceivedMessage(RemoteMessage message) {
         String from = message.getFrom();
         RemoteMessage.Notification remoteNotification = message.getNotification();
@@ -47,16 +87,17 @@ public class RNReceivedMessageHandler {
             // ^ It's null when message is from GCM
             bundle.putString("title", remoteNotification.getTitle());
             bundle.putString("message", remoteNotification.getBody());
+            bundle.putString("sound", remoteNotification.getSound());
+            bundle.putString("color", remoteNotification.getColor());
         }
 
-        for(Map.Entry<String, String> entry : message.getData().entrySet()) {
-            bundle.putString(entry.getKey(), entry.getValue());
-        }
-        JSONObject data = getPushData(bundle.getString("data"));
+        Map<String, String> notificationData = message.getData();
+
         // Copy `twi_body` to `message` to support Twilio
-        if (bundle.containsKey("twi_body")) {
-            bundle.putString("message", bundle.getString("twi_body"));
+        if (notificationData.containsKey("twi_body")) {
+            bundle.putString("message", notificationData.get("twi_body"));
         }
+        JSONObject data = getPushData(notificationData.get("data"));
 
         if (data != null) {
             if (!bundle.containsKey("message")) {
@@ -77,6 +118,12 @@ public class RNReceivedMessageHandler {
                 ApplicationBadgeHelper.INSTANCE.setApplicationIconBadgeNumber(mFirebaseMessagingService, badge);
             }
         }
+
+        Bundle dataBundle = new Bundle();
+        for(Map.Entry<String, String> entry : notificationData.entrySet()) {
+            dataBundle.putString(entry.getKey(), entry.getValue());
+        }
+        bundle.putParcelable("data", dataBundle)
 
         Log.v(LOG_TAG, "onMessageReceived: " + bundle);
 
@@ -108,6 +155,7 @@ public class RNReceivedMessageHandler {
         });
     }
 
+    }
     private JSONObject getPushData(String dataString) {
         try {
             return new JSONObject(dataString);
@@ -124,6 +172,8 @@ public class RNReceivedMessageHandler {
             bundle.putString("id", String.valueOf(randomNumberGenerator.nextInt()));
         }
 
+        RNPushNotificationConfig config = new RNPushNotificationConfig(mFirebaseMessagingService.getApplication());
+
         Boolean isForeground = isApplicationInForeground();
 
         RNPushNotificationJsDelivery jsDelivery = new RNPushNotificationJsDelivery(context);
@@ -138,9 +188,11 @@ public class RNReceivedMessageHandler {
 
         Log.v(LOG_TAG, "sendNotification: " + bundle);
 
-        Application applicationContext = (Application) context.getApplicationContext();
-        RNPushNotificationHelper pushNotificationHelper = new RNPushNotificationHelper(applicationContext);
-        pushNotificationHelper.sendToNotificationCentre(bundle);
+        if (config.getNotificationForeground() || !isForeground) {
+            Application applicationContext = (Application) context.getApplicationContext();
+            RNPushNotificationHelper pushNotificationHelper = new RNPushNotificationHelper(applicationContext);
+            pushNotificationHelper.sendToNotificationCentre(bundle);
+        }
     }
 
     private boolean isApplicationInForeground() {
@@ -148,12 +200,10 @@ public class RNReceivedMessageHandler {
         List<RunningAppProcessInfo> processInfos = activityManager.getRunningAppProcesses();
         if (processInfos != null) {
             for (RunningAppProcessInfo processInfo : processInfos) {
-                if (processInfo.processName.equals(mFirebaseMessagingService.getApplication().getPackageName())) {
-                    if (processInfo.importance == RunningAppProcessInfo.IMPORTANCE_FOREGROUND) {
-                        for (String d : processInfo.pkgList) {
-                            return true;
-                        }
-                    }
+                if (processInfo.processName.equals(mFirebaseMessagingService.getApplication().getPackageName())
+                    && processInfo.importance == RunningAppProcessInfo.IMPORTANCE_FOREGROUND
+                    && processInfo.pkgList.length > 0) {
+                    return true;
                 }
             }
         }
