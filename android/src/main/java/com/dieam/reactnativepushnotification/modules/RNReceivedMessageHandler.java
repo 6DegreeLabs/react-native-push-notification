@@ -155,7 +155,6 @@ public class RNReceivedMessageHandler {
         });
     }
 
-    }
     private JSONObject getPushData(String dataString) {
         try {
             return new JSONObject(dataString);
