@@ -123,7 +123,7 @@ public class RNReceivedMessageHandler {
         for(Map.Entry<String, String> entry : notificationData.entrySet()) {
             dataBundle.putString(entry.getKey(), entry.getValue());
         }
-        bundle.putParcelable("data", dataBundle)
+        bundle.putParcelable("data", dataBundle);
 
         Log.v(LOG_TAG, "onMessageReceived: " + bundle);
 
