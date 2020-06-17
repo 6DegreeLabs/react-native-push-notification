@@ -92,6 +92,10 @@ public class RNReceivedMessageHandler {
             bundle.putString("color", remoteNotification.getColor());
         }
 
+        for(Map.Entry<String, String> entry : message.getData().entrySet()) {
+            bundle.putString(entry.getKey(), entry.getValue());
+        }
+
         Map<String, String> notificationData = message.getData();
 
         // Copy `twi_body` to `message` to support Twilio
