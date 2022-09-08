@@ -25,7 +25,6 @@ import com.facebook.react.bridge.ReadableArray;
 import com.facebook.react.bridge.ReadableMap;
 import com.facebook.react.bridge.WritableMap;
 
-import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Random;
@@ -276,12 +275,8 @@ public class RNPushNotification extends ReactContextBaseJavaModule implements Ac
       new Thread(new Runnable() {
           @Override
           public void run() {
-              try {
-                  FirebaseMessaging.getInstance().deleteToken();
-                  Log.i(LOG_TAG, "InstanceID deleted");
-              } catch (IOException e) {
-                  Log.e(LOG_TAG, "exception", e);
-              }
+                FirebaseMessaging.getInstance().deleteToken();
+                Log.i(LOG_TAG, "InstanceID deleted");
           }
       }).start();
     }
