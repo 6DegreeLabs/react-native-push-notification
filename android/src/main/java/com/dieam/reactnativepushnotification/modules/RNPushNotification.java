@@ -34,8 +34,6 @@ import android.util.Log;
 
 import com.google.android.gms.tasks.OnCompleteListener;
 import com.google.android.gms.tasks.Task;
-import com.google.firebase.iid.FirebaseInstanceId;
-import com.google.firebase.iid.InstanceIdResult;
 import com.google.firebase.messaging.FirebaseMessaging;
 
 public class RNPushNotification extends ReactContextBaseJavaModule implements ActivityEventListener {
@@ -125,20 +123,22 @@ public class RNPushNotification extends ReactContextBaseJavaModule implements Ac
     public void requestPermissions() {
       final RNPushNotificationJsDelivery fMjsDelivery = mJsDelivery;
 
-      FirebaseInstanceId.getInstance().getInstanceId()
-              .addOnCompleteListener(new OnCompleteListener<InstanceIdResult>() {
-                  @Override
-                  public void onComplete(@NonNull Task<InstanceIdResult> task) {
-                      if (!task.isSuccessful()) {
-                          Log.e(LOG_TAG, "exception", task.getException());
-                          return;
-                      }
+      FirebaseMessaging
+                .getInstance()
+                .getToken()
+                .addOnCompleteListener(new OnCompleteListener<String>() {
+                    @Override
+                    public void onComplete(@NonNull Task<String> task) {
+                        if (!task.isSuccessful()) {
+                            Log.e(LOG_TAG, "exception", task.getException());
+                            return;
+                        }
 
-                      WritableMap params = Arguments.createMap();
-                      params.putString("deviceToken", task.getResult().getToken());
-                      fMjsDelivery.sendEvent("remoteNotificationsRegistered", params);
-                  }
-              });
+                        WritableMap params = Arguments.createMap();
+                        params.putString("deviceToken", task.getResult());
+                        fMjsDelivery.sendEvent("remoteNotificationsRegistered", params);
+                    }
+                });
     }
 
     @ReactMethod
@@ -277,7 +277,7 @@ public class RNPushNotification extends ReactContextBaseJavaModule implements Ac
           @Override
           public void run() {
               try {
-                  FirebaseInstanceId.getInstance().deleteInstanceId();
+                  FirebaseMessaging.getInstance().deleteToken();
                   Log.i(LOG_TAG, "InstanceID deleted");
               } catch (IOException e) {
                   Log.e(LOG_TAG, "exception", e);
